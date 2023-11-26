@@ -1,0 +1,202 @@
+!pip install geopy
+
+# Import necessary libraries
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, GridSearchCV
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import pandas as pd
+from geopy.distance import geodesic
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+
+# Load your dataset
+# Assuming you have a CSV file named 'delivery_data.csv' with columns: 'time', 'age', 'food_type', 'rating', 'distance'
+
+data =pd.read_csv(r"C:\Users\KABELAN\Desktop\cs\Food Delivery Time Prediction Case Study.csv")
+
+data.head()
+
+def calculate_distance(row):
+    restaurant_coords = (row['Restaurant_latitude'], row['Restaurant_longitude'])
+    delivery_coords = (row['Delivery_location_latitude'], row['Delivery_location_longitude'])
+    return geodesic(restaurant_coords, delivery_coords).km
+
+# Add a new column 'distance' to the dataset
+data['distance'] = data.apply(calculate_distance, axis=1)
+
+
+# Preprocessing
+# Encode categorical variables
+label_encoder = LabelEncoder()
+data['Type_of_order'] = label_encoder.fit_transform(data['Type_of_order'])
+data['Type_of_vehicle'] = label_encoder.fit_transform(data['Type_of_vehicle'])
+
+
+columns_to_drop=['Restaurant_latitude','Restaurant_longitude','Delivery_location_latitude','Delivery_location_longitude','ID']
+data.drop(columns=columns_to_drop, inplace=True)
+
+
+data.head()
+data.tail()
+
+data_cut=data.iloc[:4000]
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+
+# Set the style for the plot
+sns.set(style="whitegrid")
+
+# Create a regression plot using seaborn
+plt.figure(figsize=(10, 6))
+sns.regplot(x='distance', y='Time_taken(min)', data=data, scatter_kws={'s': 20}, line_kws={'color': 'red'})
+
+# Adding labels and title
+plt.xlabel('Distance for Delivery (km)')
+plt.ylabel('Time Taken (min)')
+plt.title('Regression Plot for Delivery Time vs Distance')
+plt.show()
+
+# Split the dataset into features and target variable
+X = data[['Delivery_person_Age', 'Type_of_order', 'Delivery_person_Ratings', 'distance','Type_of_vehicle']]
+y = data['Time_taken(min)']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
+# Create a scaler
+scaler = StandardScaler()
+
+# Fit the scaler on the training data and transform both training and test data
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+
+
+# List of models to try
+models_to_try = {
+    'Random Forest': RandomForestRegressor(),
+    'Linear Regression': LinearRegression(),
+    'Gradient Boosting': GradientBoostingRegressor(),
+    'Neural Network': MLPRegressor()
+}
+
+# Dictionary to store evaluation results
+evaluation_results = {}
+
+# Iterate through models
+for model_name, model in models_to_try.items():
+    print(f"\nEvaluating {model_name}:\n{'='*30}")
+    
+    # Fit the model
+    model.fit(X_train_scaled, y_train)
+
+    # Make predictions on the test set
+    predictions = model.predict(X_test_scaled)
+
+    # Evaluate the model
+    mse = mean_squared_error(y_test, predictions)
+    mae = mean_absolute_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
+    
+    print(f'Mean Squared Error: {mse}')
+    print(f'Mean Absolute Error: {mae}')
+    print(f'R-squared: {r2}')
+
+    # Store results in the dictionary
+    evaluation_results[model_name] = {'MSE': mse, 'MAE': mae, 'R-squared': r2}
+
+# Print overall results
+print("\nOverall Results:")
+for model_name, results in evaluation_results.items():
+    print(f"\n{model_name}:\n{'='*20}")
+    for metric, value in results.items():
+        print(f'{metric}: {value}')
+
+# Create a Gradient Boosting Regressor model
+gb_model = GradientBoostingRegressor()
+
+# Fit the model
+gb_model.fit(X_train_scaled, y_train)
+
+# Make predictions on the test set
+predictions = gb_model.predict(X_test_scaled)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, predictions)
+print(f'Mean Squared Error: {mse}')
+
+data_cut.head()
+
+data_cut.tail()
+
+# Get inputs from the user with added validations
+user_age = int(input("Enter the delivery person's age (greater than 18): "))
+while user_age < 18:
+    print("Invalid age. Please enter an age greater than 18.")
+    user_age = int(input("Enter the delivery person's age (greater than 18): "))
+
+user_ratings = float(input("Enter the delivery person's ratings (less than 5): "))
+while ((user_ratings >5)or(user_ratings<0)):
+    print("Invalid ratings. Please enter ratings less than 5.")
+    user_ratings = float(input("Enter the delivery person's ratings (less than 5): "))
+
+user_distance = float(input("Enter the distance for delivery (greater than 0): "))
+while user_distance <= 0:
+    print("Invalid distance. Please enter a distance greater than 0.")
+    user_distance = float(input("Enter the distance for delivery (greater than 0): "))
+
+user_type_of_order = int(input("Enter the type of order (0-3): "))
+while user_type_of_order < 0 or user_type_of_order > 3:
+    print("Invalid type of order. Please enter a value between 0 and 3.")
+    user_type_of_order = int(input("Enter the type of order (0-3): "))
+
+user_vech = int(input("Enter the vehicle for delivery (0-3): "))
+while user_vech < 0 or user_vech > 3:
+    print("Invalid type of vehicle. Please enter a value between 0 and 3.")
+    user_vech = int(input("Enter the vehicle for delivery (0-3): "))
+
+# Create a new_order DataFrame with user inputs
+new_order_scaled = pd.DataFrame({
+    'Delivery_person_Age': [user_age],
+    'Type_of_order': [user_type_of_order],
+    'Delivery_person_Ratings': [user_ratings],
+    'distance': [user_distance],
+    'Type_of_vehicle': [user_vech]
+})
+new_order_scaled = scaler.transform(new_order_scaled)
+predicted_time_scaled = gb_model.predict(new_order_scaled)
+print(f'Scaled Predicted Delivery Time: {predicted_time_scaled[0]} minutes')
+#Make predictions using the best Gradient Boosting model
+#predicted_time = gb_model.predict(new_order[['Delivery_person_Age', 'Type_of_order', 'Delivery_person_Ratings', 'distance','Type_of_vehicle']])
+
+# Print the predicted delivery time
+#print(f'Predicted Delivery Time: {predicted_time[0]} minutes')
+
+
+# Extract feature names and values for the bar chart
+feature_names = ['Delivery_person_Age', 'Type_of_order', 'Delivery_person_Ratings', 'distance', 'Type_of_vehicle']
+feature_values = [user_age, user_type_of_order, user_ratings, user_distance, user_vech]
+
+# Plot the input features
+plt.figure(figsize=(10, 6))
+plt.bar(feature_names, feature_values, color='blue')
+plt.xlabel('Features')
+plt.ylabel('Input Values')
+plt.title('Input Features for Delivery Time Prediction')
+plt.show()
+
+# Plot the predicted delivery time
+plt.figure(figsize=(6, 4))
+plt.bar(['Predicted Delivery Time'], [predicted_time[0]], color='green')
+plt.xlabel('Predicted Delivery Time')
+plt.ylabel('Time (minutes)')
+plt.title('Predicted Delivery Time')
+plt.show()
+
